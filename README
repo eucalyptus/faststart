@@ -1,0 +1,22 @@
+This set of files is designed to be part of an installer package delivered
+on a USB drive. The whole package fits easily on a 1GB drive. The files in this directory are coupled with a eucalyptus open source release, euca2ools and a centos guest image. The files needed are;
+eucalyptus-2.0.3-centos-x86_64.tar.gz
+euca2ools-1.3.1-centos-x86_64.tar.gz
+euca-centos-5.5-x86_64-13Mar2011.tgz
+
+The first two are availble at http://open.eucalyptus.com/downloads and the last isn't but can be substituted for another image bundle.
+
+These scripts perform an install with some assumptions which simplify the process and provide a stable starting point. We assume you have a fresh CentOS 5.6 install, configured on a network with a static IP. The cloud will use MANAGED_NOVLAN mode. All Eucalyptus components will be on one machine excepting the node controller. There will be 1 or more separate node controllers that are configured as part of a cluster. Here are some hardware requirements;
+ - 2 or more machines required
+ - 2 or more cores per machine
+ - 1 NIC per machine
+ - common network switch
+ - A set of free IP addresses (in the same subnet as the Eucalyptus machines) must be available for Eucalyptus to use.
+ - A large subnet (Class B, or full Class C preferably) of private address range should be made available for Eucalyptus.
+ - Eucalyptus maintains its own internal DHCP server, which issues IP addresses to Eucalyptus VMs.
+ - There should be no other DHCP server in the system that would issue an IP address to the VMs’ DHCP broadcast.
+ - text console connection to all machines (though, not at same time)
+
+Install Process
+
+Please refer to the document attached here: http://open.eucalyptus.com/try/faststart
