@@ -1,0 +1,14 @@
+[eucalyptus-devel]
+name=Eucalyptus Devel
+baseurl=http://downloads.eucalyptus.com/devel/packages/3-devel/nightly/centos/$releasever/$basearch
+gpgcheck=0
+
+[eucalyptus-deps]
+name=Eucalyptus deps
+baseurl=http://downloads.eucalyptus.com/devel/packages/3-devel/centos/6/x86_64/
+gpgcheck=0
+
+[eucalyptus-deps2]
+name=Eucalyptus deps2
+baseurl=http://yum.pgrpms.org/9.1/redhat/rhel-6-x86_64/
+gpgcheck=0
