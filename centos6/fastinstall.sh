@@ -253,6 +253,9 @@ fi
 if [ $main = "n" ]
 then
   # setup br0
+  cp ifcfg-br0 /etc/sysconfig/network-scripts >>$LOGFILE 2>&1
+  echo "BRIDGE=br0" >> /etc/sysconfig/network-scripts/ifcfg-em1
+  service network restart >>$LOGFILE 2>&1
   /etc/init.d/eucalyptus-nc start >>$LOGFILE 2>&1
   error_check
   /sbin/chkconfig eucalyptus-nc on >>$LOGFILE 2>&1
