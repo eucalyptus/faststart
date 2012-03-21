@@ -20,6 +20,7 @@
 #   if you need additional information or have any questions.
 #  
 
+export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin
 export VERSION=3-devel
 export ARCH=x86_64
 export CLUSTER_NAME=PARTI00
@@ -47,19 +48,19 @@ function edit_prop {
     then
       if [ $4 ]
       then
-  	    if [ `echo $value |grep $4` ]
-  	    then
+        if [ `echo $value |grep $4` ]
+        then
           new_value=$value
-  	    else
-  	      echo \"$value\" doesn\'t match the pattern, please refer to the previous value for input format.
-  	    fi
+        else
+          echo \"$value\" doesn\'t match the pattern, please refer to the previous value for input format.
+        fi
       else
         new_value=$value
       fi
       if [ $new_value = $value ]
       then
         sed -i.bak "s/$1=\"$prop_value\"/$1=\"$new_value\"/g" $3
-		done="y"
+	done="y"
       fi
 	else
 	  done="y"
@@ -92,10 +93,11 @@ then
 fi
 
 #for all
-echo "$(date)- Installing ntp and other regular packages" |tee -a $LOGFILE
+echo "$(date)- Installing ntp" |tee -a $LOGFILE
 #create local yum repo
 INSTALL_DIR=`pwd`
-cd /tmp
+TEMP_DIR=`mktemp -d`
+cd $TEMP_DIR
 tar zxvf $INSTALL_DIR/eucalyptus3.tgz >>$LOGFILE 2>&1
 cd $INSTALL_DIR
 mkdir /etc/yum.repos.d/bak >>$LOGFILE 2>&1
@@ -103,31 +105,15 @@ mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/ >>$LOGFILE 2>&1
 cat <<EOF> /etc/yum.repos.d/localfiles.repo
 [euca-itself]
 name=Eucalyptus Standard Packages
-baseurl=file:///tmp/pkgs/
+baseurl=file://$TEMP_DIR/pkgs/
 enabled=1
 gpgcheck=0
 EOF
 
 yum install -y ntp >>$LOGFILE 2>&1
 ntpdate pool.ntp.org >>$LOGFILE 2>&1
-# loop devices now handled by sc
-#echo "options loop max_loop=256" >> /etc/modprobe.d/loop.conf 2>$LOGFILE
-#rmmod loop ; modprobe loop max_loop=256 >>$LOGFILE 2>&1
-#yum install -y java-1.6.0-openjdk dhcp bridge-utils perl-Convert-ASN1.noarch scsi-target-utils httpd rsync vconfig wget which iptables curl swig >>$LOGFILE 2>&1
 error_check
-echo "$(date)- Installed ntp and other regular packages" |tee -a $LOGFILE
-
-#if NC
-if [ $main = "n" ]
-then
-  echo "$(date)- Installing kvm" |tee -a $LOGFILE
-#  yum install -y kvm >>$LOGFILE 2>&1
-#  sed --in-place 's/#(xend-http-server no)/(xend-http-server yes)/' /etc/xen/xend-config.sxp  >>$LOGFILE 2>&1
-#  sed --in-place 's/#(xend-address localhost)/(xend-address localhost)/' /etc/xen/xend-config.sxp >>$LOGFILE 2>&1
-#  /etc/init.d/xend restart >>$LOGFILE 2>&1
-#  error_check
-  echo "$(date)- Installed kvm" |tee -a $LOGFILE
-fi
+echo "$(date)- Installed ntp" |tee -a $LOGFILE
 
 #for all
 # disable selinux
@@ -157,7 +143,7 @@ then
   echo "$(date)- Installing front-end server packages" |tee -a $LOGFILE
 #  service tgtd start >>$LOGFILE 2>&1
 #  chkconfig tgtd on
-  yum install -y eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc euca2ools >>$LOGFILE 2>&1
+  yum install -y eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc euca2ools unzip >>$LOGFILE 2>&1
   error_check
   echo "$(date)- Installed front-end server packages" |tee -a $LOGFILE
 fi
@@ -178,6 +164,13 @@ mv /etc/yum.repos.d/bak/*.repo /etc/yum.repos.d/
 cp $INSTALL_DIR/*.repo /etc/yum.repos.d
 
 cd $INSTALL_DIR
+
+echo "$(date)- Ensuring hostname resolves" |tee -a $LOGFILE
+HOST_NAME=`hostname`
+if [ `ping -c 1 $HOST_NAME 2>&1 |grep -c unknown` > 0 ]
+then
+  sed -i "1,1s/localhost/$HOST_NAME localhost/" /etc/hosts
+fi
 
 #if NC, configure libvirt
 if [ $main = "n" ]
@@ -221,6 +214,16 @@ then
   edit_prop VNET_PRIVINTERFACE "The private ethernet interface" $EUCACONFIG
   edit_prop VNET_SUBNET "Eucalyptus-only dedicated subnet" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
   edit_prop VNET_NETMASK "Eucalyptus subnet netmask" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
+
+  # these lines will put the system dns server in the conf file if non was set
+  DNS_SERVER=`cat /etc/resolv.conf |grep nameserver | head -1 |awk '{ print $2; }'`
+  prop_line=`grep VNET_DNS $EUCACONFIG|tail -1`
+  prop_value=`echo $prop_line |cut -d '=' -f 2|tr -d "\""`
+  if [ $prop_value = '?.?.?.?' ]
+  then
+    sed -i.bak "s/$1=\"$prop_value\"/$1=\"$DNS_SERVER\"/g" $EUCACONFIG
+  fi
+
   edit_prop VNET_DNS "The DNS server address" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
   SUBNET_VAL=`grep VNET_NETMASK $EUCACONFIG|tail -1|cut -d '=' -f 2|tr -d "\""`
   ZERO_OCTETS=`echo $SUBNET_VAL |tr "." "\n" |grep 0 |wc -l`
@@ -250,13 +253,6 @@ fi
 if [ $main = "n" ]
 then
   # setup br0
-  cp ifcfg-br0 /etc/sysconfig/network-scripts
-  count=`grep BRIDGE /etc/sysconfig/network-sripts/ifcfg-em1|wc -l`
-  if [ $count -eq "0" ]
-  then
-    echo "BRIDGE=br0" >> /etc/sysconfig/network-scripts/ifcfg-em1
-  fi
-  service network restart
   /etc/init.d/eucalyptus-nc start >>$LOGFILE 2>&1
   error_check
   /sbin/chkconfig eucalyptus-nc on >>$LOGFILE 2>&1
@@ -284,6 +280,15 @@ then
     export PUBLIC_IP_ADDRESS=$public_ip
   fi
   echo "using $PUBLIC_IP_ADDRESS to register components" |tee -a $LOGFILE
+  # put ssh keys on this host, to avoid requiring user to authenticate
+  count=`ls -l /root/.ssh/id_rsa|wc -l`
+  if [ $count -eq "0" ]
+  then
+    ssh-keygen -N "" -f /root/.ssh/id_rsa
+    cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
+    ssh-keyscan -t rsa $PUBLIC_IP_ADDRESS >> /root/.ssh/known_hosts
+    #chmod 600 /root/.ssh/*
+  fi
 #  for i in `$EUCALYPTUS/usr/sbin/euca_conf --list-walruses|tail -n+2`
 #  do
 #    SVC_IP=`echo $i |awk '{ print $2 }'`
