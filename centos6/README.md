@@ -17,5 +17,4 @@ This version has a single tarball of rpms instead of the separate ones last time
 
 This version installs from the tarball, but puts the proper .repo files in place to enable yum update to work
 
-One issue is that selinux can't be disabled without a reboot, so until that is fixed try re-booting when the startup process fails, then re-run the fastinstall.sh script.
 
