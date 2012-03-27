@@ -27,7 +27,7 @@ export CLUSTER_NAME=PARTI00
 export LOGFILE=/var/log/fastinstall.log
 
 function error_check {
-  count=`grep -i 'error\|fail\|exception' $LOGFILE|wc -l`
+  count=`grep -i 'error\|fail\|exception' $LOGFILE|grep -v "FAILED"|wc -l`
   if [ $count -gt "0" ]
   then
     echo "An error occured in the last step, look at $LOGFILE for more details"
@@ -110,6 +110,14 @@ enabled=1
 gpgcheck=0
 EOF
 
+echo "$(date)- Ensuring hostname resolves" |tee -a $LOGFILE
+HOST_NAME=`hostname`
+if [ `ping -c 1 $HOST_NAME 2>&1 |grep -c unknown` -gt "0" ]
+then
+  echo "$(date)- Adding $HOSTNAME to /etc/hosts" |tee -a $LOGFILE
+  sed -i "1,1s/localhost/$HOST_NAME localhost/" /etc/hosts
+fi
+
 yum install -y ntp >>$LOGFILE 2>&1
 ntpdate pool.ntp.org >>$LOGFILE 2>&1
 error_check
@@ -128,12 +136,20 @@ else
   echo --port=8773:tcp >> $FILE
   echo --port=8443:tcp >> $FILE
   echo --port=8774:tcp >> $FILE
+  echo --port=8775:tcp >> $FILE
   echo --port=22:tcp >> $FILE
   echo --port=80:tcp >> $FILE
   echo --port=443:tcp >> $FILE
 fi
 sed --in-place=.bak 's/enforcing/disabled/g' /etc/sysconfig/selinux >>$LOGFILE 2>&1
+sed --in-place=.bak 's/enforcing/disabled/g' /etc/selinux/config >>$LOGFILE 2>&1
 setenforce 0 >>$LOGFILE 2>&1
+# disable firewall
+sed --in-place=.bak 's/enabled/disabled/g' /etc/sysconfig/system-config-firewall >>$LOGFILE 2>&1
+grep -v "reject-with" /etc/sysconfig/iptables >/tmp/iptables
+mv /etc/sysconfig/iptables /etc/sysconfig/iptables.bak
+mv /tmp/iptables /etc/sysconfig
+service iptables restart >>$LOGFILE 2>&1
 error_check
 echo "$(date)- Disabled selinux" |tee -a $LOGFILE
 
@@ -141,8 +157,6 @@ echo "$(date)- Disabled selinux" |tee -a $LOGFILE
 if [ $main = "y" ]
 then
   echo "$(date)- Installing front-end server packages" |tee -a $LOGFILE
-#  service tgtd start >>$LOGFILE 2>&1
-#  chkconfig tgtd on
   yum install -y eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc euca2ools unzip >>$LOGFILE 2>&1
   error_check
   echo "$(date)- Installed front-end server packages" |tee -a $LOGFILE
@@ -164,13 +178,8 @@ mv /etc/yum.repos.d/bak/*.repo /etc/yum.repos.d/
 cp $INSTALL_DIR/*.repo /etc/yum.repos.d
 
 cd $INSTALL_DIR
-
-echo "$(date)- Ensuring hostname resolves" |tee -a $LOGFILE
-HOST_NAME=`hostname`
-if [ `ping -c 1 $HOST_NAME 2>&1 |grep -c unknown` > 0 ]
-then
-  sed -i "1,1s/localhost/$HOST_NAME localhost/" /etc/hosts
-fi
+# cleaning up local repo packages from /tmp
+rm -rf $TEMP_DIR
 
 #if NC, configure libvirt
 if [ $main = "n" ]
@@ -197,12 +206,12 @@ then
 fi
 
 # copy our default eucalyptus.con
-# only copy if we haven't done this already. We'll take default value from there in case this
-# script is run a 2nd or 3rd time.
+# only copy if we haven't done this already. We'll take default value
+# from there in case this script is run a 2nd or 3rd time.
 count=`grep fastinstall /etc/eucalyptus/eucalyptus.conf|wc -l`
 if [ $count -eq "0" ]
 then
-	echo "y" | cp -f eucalyptus.conf /etc/eucalyptus/ >>$LOGFILE 2>&1
+  echo "y" | cp -f eucalyptus.conf /etc/eucalyptus/ >>$LOGFILE 2>&1
 fi
 
 #if front end
@@ -222,15 +231,21 @@ then
   if [ $prop_value = '?.?.?.?' ]
   then
     sed -i.bak "s/$1=\"$prop_value\"/$1=\"$DNS_SERVER\"/g" $EUCACONFIG
+    prop_value=$DNS_SERVER
   fi
 
-  edit_prop VNET_DNS "The DNS server address" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
+  dns_first_octet=`echo $prop_value | tr "." "\n" |head -1`
+  if [[ "$prop_value" == localhost || "$dns_first_octet" == 127 ]]
+  then
+    edit_prop VNET_DNS "The DNS server address" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
+  fi
+
   SUBNET_VAL=`grep VNET_NETMASK $EUCACONFIG|tail -1|cut -d '=' -f 2|tr -d "\""`
   ZERO_OCTETS=`echo $SUBNET_VAL |tr "." "\n" |grep 0 |wc -l`
   ADDRSPER_REC=16
   if [ $ZERO_OCTETS -eq "3" ]	# class A subnet
   then
-    ADDRSPER_REC=64
+    ADDRSPER_REC=32 # 64 would be OK, but for POC, we'll limit this
   elif [ $ZERO_OCTETS -eq "2" ] # class B subnet
   then
     ADDRSPER_REC=32
@@ -238,8 +253,13 @@ then
   then
     ADDRSPER_REC=16
   fi
-  echo "Based on the size of your private subnet, we recommend the next value be set to $ADDRSPER_REC"
-  edit_prop VNET_ADDRSPERNET "How many addresses per net?" $EUCACONFIG "[0-9]*"
+# don't prompt, just use our sensible recommendation
+#  echo "Based on the size of your private subnet, we recommend the next value be set to $ADDRSPER_REC"
+#  edit_prop VNET_ADDRSPERNET "How many addresses per net?" $EUCACONFIG "[0-9]*"
+  prop_line=`grep VNET_ADDRSPERNET $EUCACONFIG|tail -1`
+  prop_value=`echo $prop_line |cut -d '=' -f 2|tr -d "\""`
+  sed -i.bak "s/$1=\"$prop_value\"/$1=\"$ADDRSPER_REC\"/g" $EUCACONFIG
+
   edit_prop VNET_PUBLICIPS "The range of public IPs" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}-[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
   echo "$(date)- Initializing" |tee -a $LOGFILE
   $EUCALYPTUS/usr/sbin/euca_conf --initialize
@@ -253,15 +273,32 @@ fi
 if [ $main = "n" ]
 then
   # setup br0
+  service network stop >>$LOGFILE 2>&1
   cp ifcfg-br0 /etc/sysconfig/network-scripts >>$LOGFILE 2>&1
   echo "BRIDGE=br0" >> /etc/sysconfig/network-scripts/ifcfg-em1
-  service network restart >>$LOGFILE 2>&1
-  /etc/init.d/eucalyptus-nc start >>$LOGFILE 2>&1
+  service network start >>$LOGFILE 2>&1
+  mkdir /var/run/eucalyptus/instances
+  chown eucalyptus:eucalyptus /var/run/eucalyptus/instances
+# not since we're rebooting now.
+#  /etc/init.d/eucalyptus-nc start >>$LOGFILE 2>&1
+# NOTE: we need to reboot so that libvirt starts properly. Nice if we can find workaround
   error_check
   /sbin/chkconfig eucalyptus-nc on >>$LOGFILE 2>&1
   error_check
-  echo "This machines is running as a node controller."
-  echo "Now, you can install the front end or another node controller."
+  echo "$(date)- Going to reboot to enable hypervisor access, in 5 seconds" |tee -a $LOGFILE
+  echo "Once this machine reboots, it will be ready and running as a node controller."
+  sleep 1
+  echo "4"
+  sleep 1
+  echo "3"
+  sleep 1
+  echo "2"
+  sleep 1
+  echo "1"
+  sleep 1
+  echo ""
+  echo "rebooting now"
+  /sbin/reboot >>$LOGFILE 2>&1
 fi
 
 if [ $main = "y" ]
@@ -323,6 +360,8 @@ then
   error_check
 
   /etc/init.d/eucalyptus-cc start >>$LOGFILE 2>&1
+  # need to remove ssh creds, so sync with remote nodes will work
+  rm -f /root/.ssh/*
   for i in `$EUCALYPTUS/usr/sbin/euca_conf --list-nodes|tail -n+2`
   do
     SVC_IP=`echo $i |awk '{ print $2 }'`
