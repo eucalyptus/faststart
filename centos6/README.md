@@ -20,6 +20,7 @@ This version installs from the tarball, but puts the proper .repo files in place
 To Run it
 ---------
 
-Take the files in this directory, plus the image from here: http://emis.eucalyptus.com/starter-emis/euca-centos-2012.1.14-x86_64.tgz and place those on a flash drive (or CD).
+First, install CentOS 6.2 using this ISO (configure your network interface!) http://www.gtlib.gatech.edu/pub/centos/6.2/isos/x86_64/CentOS-6.2-x86_64-minimal.iso
+Then, take the files in this directory, plus the image from here: http://emis.eucalyptus.com/starter-emis/euca-centos-2012.1.14-x86_64.tgz and place those on a flash drive (or CD).
 Then, isntall CentOS 6.2 (minimal install ISO) on the target systems, making sure to configure the network properly. Mount the media you created and run fastinstall.sh
 (better documentation will be provided)
