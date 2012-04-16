@@ -1,4 +1,4 @@
-Faststart for 3-devel
+Faststart for 3.1
 =====================
 
 
@@ -8,6 +8,8 @@ Assumptions
   * CentOS 6
   * KVM
   * MANAGED-NOVLAN
+  * 1 front-end machine
+  * 1 or more node controllers
 
 
 What's different from the CentOS 5 version
