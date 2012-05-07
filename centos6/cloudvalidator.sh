@@ -82,8 +82,11 @@ INSTALL_DIR=`pwd`
 cd /root
 echo "$(date)- Downloading admin credentials and checking configuration" |tee -a $LOGFILE
 euca_conf --get-credentials credentials.zip >>$LOGFILE 2>&1
-unzip credentials.zip >>$LOGFILE 2>&1
+mkdir creds
+cd creds
+unzip ../credentials.zip >>$LOGFILE 2>&1
 source eucarc >>$LOGFILE 2>&1
+cd ..
 # loop and retry on this as well. compute resources should come on-line in a minute or less
 retries=0;
 while [ `euca-describe-availability-zones verbose |grep m1.small | awk '{ print $4; }'` -eq "0" ]

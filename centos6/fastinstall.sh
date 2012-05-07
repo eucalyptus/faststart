@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright (c) 2011  Eucalyptus Systems, Inc.
 #  
@@ -120,6 +120,13 @@ fi
 
 yum install -y ntp >>$LOGFILE 2>&1
 ntpdate pool.ntp.org >>$LOGFILE 2>&1
+if [ $? -gt "0" ]
+then
+  echo "$(date)- Could not reach pool.ntp.org" |tee -a $LOGFILE
+fi
+service ntpd start >>$LOGFILE 2>&1
+chkconfig ntpd on >>$LOGFILE 2>&1
+nwclock --systohc >>$LOGFILE 2>&1
 error_check
 echo "$(date)- Installed ntp" |tee -a $LOGFILE
 
@@ -185,19 +192,6 @@ rm -rf $TEMP_DIR
 if [ $main = "n" ]
 then
   echo "$(date)- Configuring libvirt " |tee -a $LOGFILE
-# shouldn't need this anymore
-#  echo "y" | cp -f libvirtd.conf /etc/libvirt/ >>$LOGFILE 2>&1
-  # add libvirt group
-  echo "libvirt:x:201:" >> /etc/group
-# won't see running domain with KVM
-#  is_running=`su eucalyptus -c "virsh list" |grep Domain |awk '{ print $3 };'`
-#  if [ $is_running ]
-#  then
-#    echo "libvirt configured" |tee -a $LOGFILE
-#  else
-#    echo "unable to find running virtual domain. check $LOGFILE"  |tee -a $LOGFILE
-#	exit -1;
-#  fi
 #disable dnsmasq
   service dnsmasq stop
   chkconfig dnsmasq off
@@ -221,8 +215,8 @@ then
   EUCACONFIG=/etc/eucalyptus/eucalyptus.conf
   edit_prop VNET_PUBINTERFACE "The public ethernet interface" $EUCACONFIG
   edit_prop VNET_PRIVINTERFACE "The private ethernet interface" $EUCACONFIG
-  edit_prop VNET_SUBNET "Eucalyptus-only dedicated subnet" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
-  edit_prop VNET_NETMASK "Eucalyptus subnet netmask" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
+  edit_prop VNET_SUBNET "Eucalyptus-only dedicated subnet" $EUCACONFIG "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
+  edit_prop VNET_NETMASK "Eucalyptus subnet netmask" $EUCACONFIG "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
 
   # these lines will put the system dns server in the conf file if non was set
   DNS_SERVER=`cat /etc/resolv.conf |grep nameserver | head -1 |awk '{ print $2; }'`
@@ -237,7 +231,7 @@ then
   dns_first_octet=`echo $prop_value | tr "." "\n" |head -1`
   if [[ "$prop_value" == localhost || "$dns_first_octet" == 127 ]]
   then
-    edit_prop VNET_DNS "The DNS server address" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
+    edit_prop VNET_DNS "The DNS server address" $EUCACONFIG "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
   fi
 
   SUBNET_VAL=`grep VNET_NETMASK $EUCACONFIG|tail -1|cut -d '=' -f 2|tr -d "\""`
@@ -256,11 +250,13 @@ then
 # don't prompt, just use our sensible recommendation
 #  echo "Based on the size of your private subnet, we recommend the next value be set to $ADDRSPER_REC"
 #  edit_prop VNET_ADDRSPERNET "How many addresses per net?" $EUCACONFIG "[0-9]*"
+  prop_line=""
+  prop_value=""
   prop_line=`grep VNET_ADDRSPERNET $EUCACONFIG|tail -1`
   prop_value=`echo $prop_line |cut -d '=' -f 2|tr -d "\""`
   sed -i.bak "s/$1=\"$prop_value\"/$1=\"$ADDRSPER_REC\"/g" $EUCACONFIG
 
-  edit_prop VNET_PUBLICIPS "The range of public IPs" $EUCACONFIG "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}-[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}"
+  edit_prop VNET_PUBLICIPS "The range of public IPs" $EUCACONFIG "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}-[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
   echo "$(date)- Initializing" |tee -a $LOGFILE
   $EUCALYPTUS/usr/sbin/euca_conf --initialize
   echo "$(date)- Starting services " |tee -a $LOGFILE
@@ -273,12 +269,20 @@ fi
 if [ $main = "n" ]
 then
   # setup br0
+  pushd /etc/sysconfig/network-scripts/
+  echo -e "DEVICE=br0\nTYPE=Bridge\nBOOTPROTO=static" > ifcfg-br0
+  grep 'IPADDR\|GATEWAY' ifcfg-em1 >> ifcfg-br0
+  IPADDRESS=`ip addr show em1 | grep global | awk '{print $2}'`
+  ipcalc -m $IPADDRESS >> ifcfg-br0
+  echo "ONBOOT=yes" >> ifcfg-br0
   service network stop >>$LOGFILE 2>&1
-  cp ifcfg-br0 /etc/sysconfig/network-scripts >>$LOGFILE 2>&1
-  echo "BRIDGE=br0" >> /etc/sysconfig/network-scripts/ifcfg-em1
+  echo "BRIDGE=br0" >> ifcfg-em1
+  popd
   service network start >>$LOGFILE 2>&1
   mkdir /var/run/eucalyptus/instances
   chown eucalyptus:eucalyptus /var/run/eucalyptus/instances
+  # this will set guest timezones to UTC, which is like EC2
+  sed -i -e 's/localtime/utc/' /etc/eucalyptus/libvirt.xsl
 # not since we're rebooting now.
 #  /etc/init.d/eucalyptus-nc start >>$LOGFILE 2>&1
 # NOTE: we need to reboot so that libvirt starts properly. Nice if we can find workaround
@@ -304,13 +308,24 @@ fi
 if [ $main = "y" ]
 then
   echo "$(date)- Registering components " |tee -a $LOGFILE
+  retries=0;
   curl http://localhost:8443/ >/dev/null 2>&1
   while [ $? -ne 0 ]
   do
     echo "waiting for cloud controller to start"
-	sleep 5
+	sleep 10
+    retries=$(($retries + 1))
+    if [ $retries -eq 30 ]  # this waits for 5 minutes
+    then
+      fail=true
+      break
+    fi
 	curl http://localhost:8443/ >/dev/null 2>&1
   done
+  if [ $fail ]
+  then
+    echo "$(date)- Cloud controller failed to start after 5 minutes. Check in /var/log/eucalyptus/startup.log" |tee -a $LOGFILE
+  fi
   export EUCALYPTUS=/
   export PUBLIC_IP_ADDRESS=`ip addr show em1 |grep inet |grep global|awk -F"[\t /]*" '{ print $3 }'`
   #prompt for ip confirm
@@ -329,17 +344,12 @@ then
     ssh-keyscan -t rsa $PUBLIC_IP_ADDRESS >> /root/.ssh/known_hosts
     #chmod 600 /root/.ssh/*
   fi
-#  for i in `$EUCALYPTUS/usr/sbin/euca_conf --list-walruses|tail -n+2`
-#  do
-#    SVC_IP=`echo $i |awk '{ print $2 }'`
-#    $EUCALYPTUS/usr/sbin/euca_conf --deregister-walrus $SVC_IP >>$LOGFILE 2>&1
-#  done
-  if [ `$EUCALYPTUS/usr/sbin/euca_conf --list-walruses|tail -n+2|wc -l` -eq '0' ]
-  then
-    $EUCALYPTUS/usr/sbin/euca_conf --register-walrus -H $PUBLIC_IP_ADDRESS -C walrus -P walrus |tee -a $LOGFILE 
-  else
-    echo "Walrus already registered. Will not re-register walrus" |tee -a $LOGFILE
-  fi
+  for i in `$EUCALYPTUS/usr/sbin/euca_conf --list-walruses|tail -n+2`
+  do
+    SVC_IP=`echo $i |awk '{ print $2 }'`
+    $EUCALYPTUS/usr/sbin/euca_conf --deregister-walrus $SVC_IP >>$LOGFILE 2>&1
+  done
+  $EUCALYPTUS/usr/sbin/euca_conf --register-walrus -H $PUBLIC_IP_ADDRESS -C walrus -P walrus |tee -a $LOGFILE 
 
   # deregister scs before clusters
   for i in `$EUCALYPTUS/usr/sbin/euca_conf --list-scs|tail -n+2`
