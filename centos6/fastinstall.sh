@@ -182,7 +182,9 @@ fi
 rm /etc/yum.repos.d/*.repo
 mv /etc/yum.repos.d/bak/*.repo /etc/yum.repos.d/
 # copy repo files to allow users to upgrade euca after install
-cp $INSTALL_DIR/*.repo /etc/yum.repos.d
+cp $INSTALL_DIR/euca.repo /etc/yum.repos.d
+rpm -Uvh $INSTALL_DIR/epel*.rpm
+rpm -Uvh $INSTALL_DIR/elrepo*.rpm
 
 cd $INSTALL_DIR
 # cleaning up local repo packages from /tmp
@@ -377,11 +379,11 @@ then
     SVC_IP=`echo $i |awk '{ print $2 }'`
     $EUCALYPTUS/usr/sbin/euca_conf --deregister-nodes $SVC_IP >>$LOGFILE 2>&1
   done
-  echo "Ready to register node controllers. Once they are installed, enter their IP addresses here, one by one (ENTER when done)"
+  echo "Ready to register node controllers. Once they are installed, enter their IP addresses here, one by one;"
   done="not"
   while [ $done != "done" ]
   do
-  	read -p "Node IP :" node
+  	read -p "Node IP (or ENTER if done):" node
 	if [ ! $node ]
 	then
 		done="done"
