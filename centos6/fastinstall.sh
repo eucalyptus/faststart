@@ -98,7 +98,7 @@ echo "$(date)- Installing ntp" |tee -a $LOGFILE
 INSTALL_DIR=`pwd`
 TEMP_DIR=`mktemp -d`
 cd $TEMP_DIR
-tar zxvf $INSTALL_DIR/eucalyptus3.tgz >>$LOGFILE 2>&1
+tar zxvf $INSTALL_DIR/eucalyptus3-*.tgz >>$LOGFILE 2>&1
 cd $INSTALL_DIR
 mkdir /etc/yum.repos.d/bak >>$LOGFILE 2>&1
 mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/ >>$LOGFILE 2>&1
@@ -165,6 +165,9 @@ if [ $main = "y" ]
 then
   echo "$(date)- Installing front-end server packages" |tee -a $LOGFILE
   yum install -y eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc euca2ools unzip >>$LOGFILE 2>&1
+  sysctl -w kernel.sem="250 32000 32 2048" >>$LOGFILE 2>&1
+  sysctl -w kernel.shmmax=17179869184
+  sysctl -w kernel.shmall=4194304
   error_check
   echo "$(date)- Installed front-end server packages" |tee -a $LOGFILE
 fi
