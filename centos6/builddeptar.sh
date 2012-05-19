@@ -7,7 +7,8 @@
 #
 
 # first, install repo files
-cp euca.repo /etc/yum.repos.d/
+rpm -Uvh eucalyptus*.rpm
+rpm -Uvh euca2ools*.rpm
 rpm -Uvh elrepo*.rpm
 rpm -Uvh epel*.rpm
 

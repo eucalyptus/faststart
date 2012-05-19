@@ -1,5 +1,0 @@
-[eucalyptus-master]
-name=Eucalyptus master branch continuous builds
-baseurl=http://192.168.51.243:5000/genrepo/?distro=rhel&releasever=$releasever&arch=$basearch&url=repo-euca@git.eucalyptus-systems.com:eucalyptus&branch=master
-gpgcheck=0
-
