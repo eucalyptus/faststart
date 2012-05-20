@@ -164,6 +164,7 @@ echo "$(date)- Disabled selinux" |tee -a $LOGFILE
 if [ $main = "y" ]
 then
   echo "$(date)- Installing front-end server packages" |tee -a $LOGFILE
+  yum update -y >>$LOGFILE 2>&1
   yum install -y eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc euca2ools unzip >>$LOGFILE 2>&1
   sysctl -w kernel.sem="250 32000 32 2048" >>$LOGFILE 2>&1
   sysctl -w kernel.shmmax=17179869184
@@ -176,6 +177,7 @@ fi
 if [ $main = "n" ]
 then
   echo "$(date)- Installing compute node packages" |tee -a $LOGFILE
+  yum update -y >>$LOGFILE 2>&1
   yum install -y eucalyptus-nc >>$LOGFILE 2>&1
   error_check
   echo "$(date)- Installed compute node packages" |tee -a $LOGFILE
