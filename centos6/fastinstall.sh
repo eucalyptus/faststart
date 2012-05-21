@@ -98,7 +98,7 @@ echo "$(date)- Installing ntp" |tee -a $LOGFILE
 INSTALL_DIR=`pwd`
 TEMP_DIR=`mktemp -d`
 cd $TEMP_DIR
-tar zxvf $INSTALL_DIR/eucalyptus3-*.tgz >>$LOGFILE 2>&1
+tar zxvf $INSTALL_DIR/eucalyptus3*.tgz >>$LOGFILE 2>&1
 cd $INSTALL_DIR
 mkdir /etc/yum.repos.d/bak >>$LOGFILE 2>&1
 mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/ >>$LOGFILE 2>&1
@@ -163,12 +163,15 @@ echo "$(date)- Disabled selinux" |tee -a $LOGFILE
 #if front end
 if [ $main = "y" ]
 then
-  echo "$(date)- Installing front-end server packages" |tee -a $LOGFILE
+  echo "$(date)- Updating OS packages and installing front-end server packages" |tee -a $LOGFILE
   yum update -y >>$LOGFILE 2>&1
   yum install -y eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc euca2ools unzip >>$LOGFILE 2>&1
   sysctl -w kernel.sem="250 32000 32 2048" >>$LOGFILE 2>&1
   sysctl -w kernel.shmmax=17179869184
   sysctl -w kernel.shmall=4194304
+  sed -i.bak "s/kernel.shmmax = [0-9]*/kernel.shmmax=17179869184/" /etc/sysctl.conf
+  sed -i.bak "s/kernel.shmall = [0-9]*/kernel.shmall=4194304/" /etc/sysctl.conf
+  echo "kernel.sem=250 32000 32 2048" >>/etc/sysctl.conf
   error_check
   echo "$(date)- Installed front-end server packages" |tee -a $LOGFILE
 fi
@@ -176,7 +179,7 @@ fi
 #if NC
 if [ $main = "n" ]
 then
-  echo "$(date)- Installing compute node packages" |tee -a $LOGFILE
+  echo "$(date)- Updating OS packages and installing compute node packages" |tee -a $LOGFILE
   yum update -y >>$LOGFILE 2>&1
   yum install -y eucalyptus-nc >>$LOGFILE 2>&1
   error_check
@@ -399,7 +402,20 @@ then
   error_check
   echo "$(date)- Registered components " |tee -a $LOGFILE
   ./cloudvalidator.sh
-  echo "Please visit https://$PUBLIC_IP_ADDRESS:8443/ to start using your cluster!"
+  echo "Rebooting to enable upgraded kernel. Please visit https://$PUBLIC_IP_ADDRESS:8443/ to start using your cluster!"
+  echo "Once this machine reboots, it will be ready and running as a node controller."
+  sleep 1
+  echo "4"
+  sleep 1
+  echo "3"
+  sleep 1
+  echo "2"
+  sleep 1
+  echo "1"
+  sleep 1
+  echo ""
+  echo "rebooting now"
+  /sbin/reboot >>$LOGFILE 2>&1
 fi
 
 
