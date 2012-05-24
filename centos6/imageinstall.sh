@@ -20,6 +20,7 @@
 #   if you need additional information or have any questions.
 #  
 
+export HYPERVISOR=kvm
 export LOGFILE=/var/log/imageinstall.log
 
 function error_check {
@@ -54,16 +55,16 @@ tar xvzf $1 >>$LOGFILE 2>&1
 
 imagedir=`basename $1 .tgz`
 echo "$(date)- Uploading kernel" |tee -a $LOGFILE
-kernelname=`basename $imagedir/vmli*`
-euca-bundle-image -i $imagedir/vmlin* --kernel true -p $kernelname >>$LOGFILE 2>&1
+kernelname=`basename $imagedir/$HYPERVISOR-kernel/vmli*`
+euca-bundle-image -i $imagedir/$HYPERVISOR-kernel/vmlin* --kernel true -p $kernelname >>$LOGFILE 2>&1
 euca-upload-bundle -b $2 -m /tmp/$kernelname.manifest.xml >>$LOGFILE 2>&1
 kernelid=`euca-register $2/$kernelname.manifest.xml|awk '{ print $2 }'`
 echo $kernelid >> $LOGFILE
 error_check
 
 echo "$(date)- Uploading ramdisk" |tee -a $LOGFILE
-ramdiskname=`basename $imagedir/initrd*`
-euca-bundle-image -i $imagedir/initrd* --ramdisk true -p $ramdiskname >>$LOGFILE 2>&1
+ramdiskname=`basename $imagedir/$HYPERVISOR-kernel/initrd*`
+euca-bundle-image -i $imagedir/$HYPERVISOR-kernel/initrd* --ramdisk true -p $ramdiskname >>$LOGFILE 2>&1
 euca-upload-bundle -b $2 -m /tmp/$ramdiskname.manifest.xml >>$LOGFILE 2>&1
 ramdiskid=`euca-register $2/$ramdiskname.manifest.xml|awk '{ print $2 }'`
 echo $ramdiskid >> $LOGFILE
