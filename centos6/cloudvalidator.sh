@@ -111,5 +111,5 @@ fi
 
 echo "$(date)- Configuration checks out!" |tee -a $LOGFILE
 echo "$(date)- Loading default image" |tee -a $LOGFILE
-$INSTALL_DIR/imageinstall.sh $INSTALL_DIR/euca-centos-2012.1.14-x86_64.tgz admin
+$INSTALL_DIR/imageinstall.sh $INSTALL_DIR/euca-centos-*-x86_64.tgz admin
 echo "$(date)- Loaded default image" |tee -a $LOGFILE
