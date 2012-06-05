@@ -240,7 +240,7 @@ then
   prop_value=`echo $prop_line |cut -d '=' -f 2|tr -d "\""`
   if [ $prop_value = '?.?.?.?' ]
   then
-    sed -i.bak "s/VNET_DNS=\"$prop_value\"/$1=\"$DNS_SERVER\"/g" $EUCACONFIG
+    sed -i.bak "s/VNET_DNS=\"$prop_value\"/VNET_DNS=\"$DNS_SERVER\"/g" $EUCACONFIG
     prop_value=$DNS_SERVER
   fi
 
