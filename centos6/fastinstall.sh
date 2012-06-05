@@ -126,7 +126,7 @@ then
 fi
 service ntpd start >>$LOGFILE 2>&1
 chkconfig ntpd on >>$LOGFILE 2>&1
-nwclock --systohc >>$LOGFILE 2>&1
+hwclock --systohc >>$LOGFILE 2>&1
 error_check
 echo "$(date)- Installed ntp" |tee -a $LOGFILE
 
@@ -166,12 +166,6 @@ then
   echo "$(date)- Updating OS packages and installing front-end server packages" |tee -a $LOGFILE
   yum update -y >>$LOGFILE 2>&1
   yum install -y eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc euca2ools unzip >>$LOGFILE 2>&1
-  sysctl -w kernel.sem="250 32000 32 2048" >>$LOGFILE 2>&1
-  sysctl -w kernel.shmmax=17179869184
-  sysctl -w kernel.shmall=4194304
-  sed -i.bak "s/kernel.shmmax = [0-9]*/kernel.shmmax=17179869184/" /etc/sysctl.conf
-  sed -i.bak "s/kernel.shmall = [0-9]*/kernel.shmall=4194304/" /etc/sysctl.conf
-  echo "kernel.sem=250 32000 32 2048" >>/etc/sysctl.conf
   error_check
   echo "$(date)- Installed front-end server packages" |tee -a $LOGFILE
 fi
@@ -190,7 +184,8 @@ fi
 rm /etc/yum.repos.d/*.repo
 mv /etc/yum.repos.d/bak/*.repo /etc/yum.repos.d/
 # copy repo files to allow users to upgrade euca after install
-cp $INSTALL_DIR/euca.repo /etc/yum.repos.d
+rpm -Uvh $INSTALL_DIR/eucalyptus*.rpm
+rpm -Uvh $INSTALL_DIR/euca2ools*.rpm
 rpm -Uvh $INSTALL_DIR/epel*.rpm
 rpm -Uvh $INSTALL_DIR/elrepo*.rpm
 
@@ -218,11 +213,22 @@ then
   echo "y" | cp -f eucalyptus.conf /etc/eucalyptus/ >>$LOGFILE 2>&1
 fi
 
+nic=`awk '{ print $1,$2 }'</proc/net/route |grep 00000000|awk '{ print $1 }'`
+
 #if front end
 if [ $main = "y" ]
 then
   echo "We need some network information"
   EUCACONFIG=/etc/eucalyptus/eucalyptus.conf
+  # if no interfaces values are set, choose sensible default
+  # (in this case, the interface used in default route)
+  prop_line=`grep VNET_PUBINTERFACE $EUCACONFIG|tail -1`
+  prop_value=`echo $prop_line |cut -d '=' -f 2|tr -d "\""`
+  if [ $prop_value = '?' ]
+  then
+    sed -i.bak "s/VNET_PUBINTERFACE=\"$prop_value\"/VNET_PUBINTERFACE=\"$nic\"/g" $EUCACONFIG
+    sed -i.bak "s/VNET_PRIVINTERFACE=\"$prop_value\"/VNET_PRIVINTERFACE=\"$nic\"/g" $EUCACONFIG
+  fi
   edit_prop VNET_PUBINTERFACE "The public ethernet interface" $EUCACONFIG
   edit_prop VNET_PRIVINTERFACE "The private ethernet interface" $EUCACONFIG
   edit_prop VNET_SUBNET "Eucalyptus-only dedicated subnet" $EUCACONFIG "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
@@ -234,7 +240,7 @@ then
   prop_value=`echo $prop_line |cut -d '=' -f 2|tr -d "\""`
   if [ $prop_value = '?.?.?.?' ]
   then
-    sed -i.bak "s/$1=\"$prop_value\"/$1=\"$DNS_SERVER\"/g" $EUCACONFIG
+    sed -i.bak "s/VNET_DNS=\"$prop_value\"/$1=\"$DNS_SERVER\"/g" $EUCACONFIG
     prop_value=$DNS_SERVER
   fi
 
@@ -281,12 +287,12 @@ then
   # setup br0
   pushd /etc/sysconfig/network-scripts/
   echo -e "DEVICE=br0\nTYPE=Bridge\nBOOTPROTO=static" > ifcfg-br0
-  grep 'IPADDR\|GATEWAY' ifcfg-em1 >> ifcfg-br0
-  IPADDRESS=`ip addr show em1 | grep global | awk '{print $2}'`
+  grep 'IPADDR\|GATEWAY' ifcfg-$nic >> ifcfg-br0
+  IPADDRESS=`ip addr show $nic | grep global | awk '{print $2}'`
   ipcalc -m $IPADDRESS >> ifcfg-br0
   echo "ONBOOT=yes" >> ifcfg-br0
   service network stop >>$LOGFILE 2>&1
-  echo "BRIDGE=br0" >> ifcfg-em1
+  echo "BRIDGE=br0" >> ifcfg-$nic
   popd
   service network start >>$LOGFILE 2>&1
   mkdir /var/run/eucalyptus/instances
@@ -337,7 +343,7 @@ then
     echo "$(date)- Cloud controller failed to start after 5 minutes. Check in /var/log/eucalyptus/startup.log" |tee -a $LOGFILE
   fi
   export EUCALYPTUS=/
-  export PUBLIC_IP_ADDRESS=`ip addr show em1 |grep inet |grep global|awk -F"[\t /]*" '{ print $3 }'`
+  export PUBLIC_IP_ADDRESS=`ip addr show $nic |grep inet |grep global|awk -F"[\t /]*" '{ print $3 }'`
   #prompt for ip confirm
   read -p "Public IP for this node [$PUBLIC_IP_ADDRESS]" public_ip
   if [ $public_ip ]
