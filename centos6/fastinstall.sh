@@ -119,14 +119,21 @@ then
 fi
 
 yum install -y ntp >>$LOGFILE 2>&1
-ntpdate pool.ntp.org >>$LOGFILE 2>&1
-if [ $? -gt "0" ]
+# test for connectivity before trying to sync with ntpdate
+if [ `ping -c 1 pool.ntp.org 2>&1 |grep -c unknown` -gt "0" ]
 then
-  echo "$(date)- Could not reach pool.ntp.org" |tee -a $LOGFILE
+  echo "$(date)- *** Could not reach pool.ntp.org" |tee -a $LOGFILE
+  echo "$(date)- *** ntp will not be enabled. You will need to ensure the clocks on machines in your cloud are synchronized." |tee -a $LOGFILE
+else
+  ntpdate pool.ntp.org >>$LOGFILE 2>&1
+  if [ $? -gt "0" ]
+  then
+    echo "$(date)- Could not reach pool.ntp.org" |tee -a $LOGFILE
+  fi
+  service ntpd start >>$LOGFILE 2>&1
+  chkconfig ntpd on >>$LOGFILE 2>&1
+  hwclock --systohc >>$LOGFILE 2>&1
 fi
-service ntpd start >>$LOGFILE 2>&1
-chkconfig ntpd on >>$LOGFILE 2>&1
-hwclock --systohc >>$LOGFILE 2>&1
 error_check
 echo "$(date)- Installed ntp" |tee -a $LOGFILE
 
