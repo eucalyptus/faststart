@@ -221,6 +221,10 @@ then
 fi
 
 nic=`awk '{ print $1,$2 }'</proc/net/route |grep 00000000|awk '{ print $1 }'`
+if [ -n $nic ]
+then
+  nic="em1"
+fi
 
 #if front end
 if [ $main = "y" ]
