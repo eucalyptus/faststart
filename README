@@ -1,6 +1,7 @@
 This set of files is designed to be part of an installer package delivered
 on a USB drive. The whole package fits easily on a 1GB drive. 
-The latest version is in the centos6 directory and instructions are in the README.md there.
+
+>>> The latest version is in the centos6 directory and instructions are in the README.md there.
 
 These scripts perform an install with some assumptions which simplify the process and provide a stable starting point. We assume you have a fresh CentOS 5.6 install, configured on a network with a static IP. The cloud will use MANAGED_NOVLAN mode. All Eucalyptus components will be on one machine excepting the node controller. There will be 1 or more separate node controllers that are configured as part of a cluster. Here are some hardware requirements;
  - 2 or more machines required
