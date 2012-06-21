@@ -27,7 +27,20 @@ To Build the Media
 
 FastStart consists of a set of files on a piece of media. Really, it can run from any directory, so copying the files to the target system is also acceptable. Generally, the files are placed onto a USB drive, but they should also fit onto a CD.
 
-You'll need the files in this subdirectory, minus README.md and builddeptar.sh. You'll also need the latest euca-centos image from emis.eucalyptus.com (choose small root, 64 bit). The final requirement is the tarball of rpms which can be built using builddeptar.sh (instructions contained inside the script). The file that results from that needs to have a version number, so rename it in this format "eucalyptus3-<version>.tgz". Place all of those together on your media and you're ready to go!
+The process to build the release tgz file is in 2 steps. First, run builddeptar.sh, then builddist.sh
+
+This first step pulls eucalyptus and centos updates into a directory and creates a repo structure. That gets tar'ed up. Take these steps to generate this tarball;
+
+  * install centos 6.2 minimial onto a machine and ensure it can resolve external dns names.
+  * copy all of these files onto a usb drive (2GB at least)
+  * copy one of the euca-centos 64 bit base images from emis.eucalyptus.com to the usb drive.
+  * mount that usb drive on the minimal centos 6.2 machine
+  * run the builddeptar.sh script from the usb drive
+  * copy /tmp/eucalyptus3.tgz to the usb drive, naming it for the release (i.e. eucalyptus3.1-rc1.tgz)
+
+Next, you need to create the final tarball for release. To do this, simply run builddist.sh from the usb drive. It should create a file called faststart.tgz. You should rename that based on the version number, like faststart3.1-rc1.tgz.
+
+That's it! That file is what you'd give people to create their own faststart usb drive, or CD!
 
 
 What's different from the CentOS 5 version
