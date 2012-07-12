@@ -70,7 +70,7 @@ function edit_prop {
 
 main="y"
 
-echo "Welcome to the Euclayptus 3.1 Installer"
+echo "Welcome to the Eucalyptus 3.1 Installer"
 echo ""
 read -p "Will this be the front-end server in your cloud? [Y|n]" main_node
 if [ $main_node -a $main_node = "n" ]
