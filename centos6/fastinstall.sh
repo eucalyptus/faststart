@@ -419,20 +419,7 @@ then
   error_check
   echo "$(date)- Registered components " |tee -a $LOGFILE
   ./cloudvalidator.sh
-  echo "Rebooting to enable upgraded kernel. Please visit https://$PUBLIC_IP_ADDRESS:8443/ to start using your cluster!"
-  echo "Once this machine reboots, it will be ready and running as a node controller."
-  sleep 1
-  echo "4"
-  sleep 1
-  echo "3"
-  sleep 1
-  echo "2"
-  sleep 1
-  echo "1"
-  sleep 1
-  echo ""
-  echo "rebooting now"
-  /sbin/reboot >>$LOGFILE 2>&1
+  echo "Your cloud is ready! Please visit https://$PUBLIC_IP_ADDRESS:8443/ to start using your cloud!"
 fi
 
 

@@ -5,7 +5,7 @@ Faststart for 3.1
 Assumptions
 -----------
 
-  * CentOS 6
+  * CentOS 6.3
   * KVM
   * MANAGED-NOVLAN
   * 1 front-end machine
@@ -15,11 +15,11 @@ Assumptions
 To Run it
 ---------
 
-First, install CentOS 6.2 using this ISO (configure your network interface!) http://www.gtlib.gatech.edu/pub/centos/6.2/isos/x86_64/CentOS-6.2-x86_64-minimal.iso
+First, install CentOS 6.3 using this ISO (configure your network interface!) http://www.gtlib.gatech.edu/pub/centos/6.3/isos/x86_64/CentOS-6.3-x86_64-minimal.iso
 
 Then, follow the instructions below (To Build the Media) and create your FastStart media.
 
-Then, isntall CentOS 6.2 (minimal install ISO) on the target systems, making sure to configure the network properly. Mount the media you created and run fastinstall.sh
+Then, install CentOS 6.3 (minimal install ISO) on the target systems, making sure to configure the network properly. Mount the media you created and run fastinstall.sh
 (better documentation will be provided)
 
 To Build the Media
@@ -31,10 +31,10 @@ The process to build the release tgz file is in 2 steps. First, run builddeptar.
 
 This first step pulls eucalyptus and centos updates into a directory and creates a repo structure. That gets tar'ed up. Take these steps to generate this tarball;
 
-  * install centos 6.2 minimial onto a machine and ensure it can resolve external dns names.
+  * install centos 6.3 minimial onto a machine and ensure it can resolve external dns names.
   * copy all of these files onto a usb drive (2GB at least)
   * copy one of the euca-centos 64 bit base images from emis.eucalyptus.com to the usb drive.
-  * mount that usb drive on the minimal centos 6.2 machine
+  * mount that usb drive on the minimal centos 6.3 machine
   * run the builddeptar.sh script from the usb drive
   * copy /tmp/eucalyptus3.tgz to the usb drive, naming it for the release (i.e. eucalyptus3.1-rc1.tgz)
 
