@@ -60,12 +60,34 @@ function edit_prop {
       if [ $new_value = $value ]
       then
         sed -i.bak "s/$1=\"$prop_value\"/$1=\"$new_value\"/g" $3
-	done="y"
+        done="y"
       fi
-	else
-	  done="y"
+    elif [ `echo $prop_value| grep "x\.x\.x\.x"|wc -l` -gt 0 ]
+    then
+      echo "Please enter a value."
+    else
+      done="y"
     fi
   done
+}
+
+# function to prompt for and validate network interface
+# params: prompt, default
+function get_network {
+  IF_NAME="blah"
+  while ! echo `ip link show |grep UP |awk '{ print $2; }'|grep -v lo|tr -d ':'` | grep -E $IF_NAME > /dev/null ;
+  do
+    read -p "$1 [$2]: " IF_NAME
+    if [ ! $IF_NAME ]
+    then
+      IF_NAME=$2
+    fi
+    if [ `ip link show $IF_NAME 2>&1 |wc -l` -lt 2 ]
+    then
+      echo "interface $IF_NAME not found." 1>&2
+    fi
+  done
+  echo $IF_NAME
 }
 
 main="y"
@@ -100,8 +122,11 @@ TEMP_DIR=`mktemp -d`
 cd $TEMP_DIR
 tar zxvf $INSTALL_DIR/eucalyptus3*.tgz >>$LOGFILE 2>&1
 cd $INSTALL_DIR
-mkdir /etc/yum.repos.d/bak >>$LOGFILE 2>&1
-mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak/ >>$LOGFILE 2>&1
+# install repos for euca and deps
+rpm -Uvh $INSTALL_DIR/eucalyptus*.rpm
+rpm -Uvh $INSTALL_DIR/euca2ools*.rpm
+rpm -Uvh $INSTALL_DIR/epel*.rpm
+rpm -Uvh $INSTALL_DIR/elrepo*.rpm
 cat <<EOF> /etc/yum.repos.d/localfiles.repo
 [euca-itself]
 name=Eucalyptus Standard Packages
@@ -171,7 +196,8 @@ echo "$(date)- Disabled selinux" |tee -a $LOGFILE
 if [ $main = "y" ]
 then
   echo "$(date)- Updating OS packages and installing front-end server packages" |tee -a $LOGFILE
-  yum update -y >>$LOGFILE 2>&1
+  # let's not update the OS. Slows things down and people can do that themselves
+#  yum update -y >>$LOGFILE 2>&1
   yum install -y eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc euca2ools unzip >>$LOGFILE 2>&1
   error_check
   echo "$(date)- Installed front-end server packages" |tee -a $LOGFILE
@@ -181,23 +207,16 @@ fi
 if [ $main = "n" ]
 then
   echo "$(date)- Updating OS packages and installing compute node packages" |tee -a $LOGFILE
-  yum update -y >>$LOGFILE 2>&1
+  # let's not update the OS. Slows things down and people can do that themselves
+#  yum update -y >>$LOGFILE 2>&1
   yum install -y eucalyptus-nc >>$LOGFILE 2>&1
   error_check
   echo "$(date)- Installed compute node packages" |tee -a $LOGFILE
 fi
 
-#set std yum repos back
-rm /etc/yum.repos.d/*.repo
-mv /etc/yum.repos.d/bak/*.repo /etc/yum.repos.d/
-# copy repo files to allow users to upgrade euca after install
-rpm -Uvh $INSTALL_DIR/eucalyptus*.rpm
-rpm -Uvh $INSTALL_DIR/euca2ools*.rpm
-rpm -Uvh $INSTALL_DIR/epel*.rpm
-rpm -Uvh $INSTALL_DIR/elrepo*.rpm
-
 cd $INSTALL_DIR
-# cleaning up local repo packages from /tmp
+# cleaning up local repo packages
+rm /etc/yum.repos.d/localfiles.repo
 rm -rf $TEMP_DIR
 
 #if NC, configure libvirt
@@ -226,6 +245,18 @@ then
   nic="em1"
 fi
 
+# if interface isn't in list of active interfaces, set to either em1 or eth0 since those seem to be
+# options centos6 gives us for embedded or external nics
+if [ `ip link show |grep UP |awk '{ print $2; }'|grep -v lo|tr -d ':' |grep $nic |wc -l` -eq 0 ]
+then
+  if [ $nic -eq 'em1' ]
+  then
+    nic="eth0"
+  else
+    nic="em1"
+  fi
+fi
+
 #if front end
 if [ $main = "y" ]
 then
@@ -240,8 +271,10 @@ then
     sed -i.bak "s/VNET_PUBINTERFACE=\"$prop_value\"/VNET_PUBINTERFACE=\"$nic\"/g" $EUCACONFIG
     sed -i.bak "s/VNET_PRIVINTERFACE=\"$prop_value\"/VNET_PRIVINTERFACE=\"$nic\"/g" $EUCACONFIG
   fi
+  echo "We need to confirm the name of the ethernet interface(s). Often, it's em1 or eth0."
   edit_prop VNET_PUBINTERFACE "The public ethernet interface" $EUCACONFIG
-  edit_prop VNET_PRIVINTERFACE "The private ethernet interface" $EUCACONFIG
+  edit_prop VNET_PRIVINTERFACE "The private ethernet interface (can be the same as public)" $EUCACONFIG
+  echo "Next, we need a subnet that isn't used on your network to assign instance private IPs to."
   edit_prop VNET_SUBNET "Eucalyptus-only dedicated subnet" $EUCACONFIG "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
   edit_prop VNET_NETMASK "Eucalyptus subnet netmask" $EUCACONFIG "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
 
@@ -283,6 +316,7 @@ then
   prop_value=`echo $prop_line |cut -d '=' -f 2|tr -d "\""`
   sed -i.bak "s/$1=\"$prop_value\"/$1=\"$ADDRSPER_REC\"/g" $EUCACONFIG
 
+  echo "Now, we need a range of public IP addresses Eucalyptus can assign to instances on your network."
   edit_prop VNET_PUBLICIPS "The range of public IPs" $EUCACONFIG "[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}-[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
   echo "$(date)- Initializing" |tee -a $LOGFILE
   $EUCALYPTUS/usr/sbin/euca_conf --initialize
@@ -296,6 +330,8 @@ fi
 if [ $main = "n" ]
 then
   # setup br0
+  echo "We need to confirm the name of the ethernet interface. Often, it's em1 or eth0."
+  nic=`get_network "Ethernet interface" $nic`
   pushd /etc/sysconfig/network-scripts/
   echo -e "DEVICE=br0\nTYPE=Bridge\nBOOTPROTO=static" > ifcfg-br0
   grep 'IPADDR\|GATEWAY' ifcfg-$nic >> ifcfg-br0

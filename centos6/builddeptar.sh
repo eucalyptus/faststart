@@ -17,7 +17,8 @@ yum install -y yum-downloadonly
 
 # fetch the OS update packages
 mkdir /tmp/pkgs
-yum update -y --downloadonly --downloaddir /tmp/pkgs
+# skipping os update now
+#yum update -y --downloadonly --downloaddir /tmp/pkgs
 
 # fetch euca packages
 yum install -y --downloadonly --downloaddir /tmp/pkgs eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc eucalyptus-nc
