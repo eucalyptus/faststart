@@ -24,7 +24,7 @@ mkdir /tmp/pkgs
 yum install -y --downloadonly --downloaddir /tmp/pkgs eucalyptus-cloud eucalyptus-walrus eucalyptus-cc eucalyptus-sc eucalyptus-nc
 
 # fetch soft deps
-yum install -y --downloadonly --downloaddir /tmp/pkgs ntp zip unzip qemu-kvm
+yum install -y --downloadonly --downloaddir /tmp/pkgs ntp zip unzip qemu-kvm yum-plugin-priorities
 
 # build dir into a repo
 yum install -y createrepo

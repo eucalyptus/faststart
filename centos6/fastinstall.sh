@@ -115,25 +115,25 @@ then
 fi
 
 #for all
-echo "$(date)- Installing ntp" |tee -a $LOGFILE
+echo "$(date)- Installing local package repo, ntpd" |tee -a $LOGFILE
 #create local yum repo
 INSTALL_DIR=`pwd`
 TEMP_DIR=`mktemp -d`
 cd $TEMP_DIR
 tar zxvf $INSTALL_DIR/eucalyptus3*.tgz >>$LOGFILE 2>&1
+rpm -Uvh pkgs/yum-plugin-priorities*.rpm
 cd $INSTALL_DIR
 # install repos for euca and deps
 rpm -Uvh $INSTALL_DIR/eucalyptus*.rpm
 rpm -Uvh $INSTALL_DIR/euca2ools*.rpm
 rpm -Uvh $INSTALL_DIR/epel*.rpm
 rpm -Uvh $INSTALL_DIR/elrepo*.rpm
-cat <<EOF> /etc/yum.repos.d/localfiles.repo
-[euca-itself]
-name=Eucalyptus Standard Packages
-baseurl=file://$TEMP_DIR/pkgs/
-enabled=1
-gpgcheck=0
-EOF
+echo "[euca-itself]" >/etc/yum.repos.d/localfiles.repo
+echo "name=Eucalyptus Standard Packages" >>/etc/yum.repos.d/localfiles.repo
+echo "baseurl=file://$TEMP_DIR/pkgs/" >>/etc/yum.repos.d/localfiles.repo
+echo "enabled=1" >>/etc/yum.repos.d/localfiles.repo
+echo "gpgcheck=0" >>/etc/yum.repos.d/localfiles.repo
+echo "priority=1" >>/etc/yum.repos.d/localfiles.repo
 
 echo "$(date)- Ensuring hostname resolves" |tee -a $LOGFILE
 HOST_NAME=`hostname`
@@ -160,7 +160,7 @@ else
   hwclock --systohc >>$LOGFILE 2>&1
 fi
 error_check
-echo "$(date)- Installed ntp" |tee -a $LOGFILE
+echo "$(date)- Installed local package repo, ntpd" |tee -a $LOGFILE
 
 #for all
 # disable selinux
