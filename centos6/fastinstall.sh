@@ -114,6 +114,24 @@ then
   touch $LOGFILE
 fi
 
+echo "A network connection is recommended to download any extra packages and to configure ntp."
+read -p "Is it OK to check that connection now? [Y|n]" check_net
+if [ $check_net -a $check_net = "n" ]
+then
+  echo "If there are any unresolved packages, you may have to install those manually."
+else
+  echo "Checking..."
+  if [ `ping -c 1 downloads.eucalyptus.com 2>&1 |grep -c unknown` -gt "0" ]
+  then
+    echo "Could not connect to the internet. You may have to do the following;"
+    echo " - configure ntpd manually"
+    echo " - if the package install is missing dependencies, install any missing packages yourself and re-run"
+  else
+    echo "OK, continuing."
+  fi
+fi
+echo
+
 #for all
 echo "$(date)- Installing local package repo, ntpd" |tee -a $LOGFILE
 #create local yum repo
