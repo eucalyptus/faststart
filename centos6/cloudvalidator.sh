@@ -81,8 +81,12 @@ done
 INSTALL_DIR=`pwd`
 cd /root
 echo "$(date)- Downloading admin credentials and checking configuration" |tee -a $LOGFILE
+if [ -f credentials.zip ]
+then
+  rm credentials.zip
+fi
 euca_conf --get-credentials credentials.zip >>$LOGFILE 2>&1
-mkdir creds
+mkdir -p creds
 cd creds
 unzip ../credentials.zip >>$LOGFILE 2>&1
 source eucarc >>$LOGFILE 2>&1

@@ -94,6 +94,8 @@ main="y"
 
 echo "Welcome to the Eucalyptus 3.1 Installer"
 echo ""
+echo "NOTE: You should install the node controllers first."
+echo ""
 read -p "Will this be the front-end server in your cloud? [Y|n]" main_node
 if [ $main_node -a $main_node = "n" ]
 then
