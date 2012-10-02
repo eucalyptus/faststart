@@ -269,7 +269,7 @@ fi
 # options centos6 gives us for embedded or external nics
 if [ `ip link show |grep UP |awk '{ print $2; }'|grep -v lo|tr -d ':' |grep $nic |wc -l` -eq 0 ]
 then
-  if [ $nic -eq 'em1' ]
+  if [ $nic = 'em1' ]
   then
     nic="eth0"
   else
