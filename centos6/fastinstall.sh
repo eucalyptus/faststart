@@ -412,7 +412,7 @@ then
   export EUCALYPTUS=/
   export PUBLIC_IP_ADDRESS=`ip addr show $nic |grep inet |grep global|awk -F"[\t /]*" '{ print $3 }'`
   #prompt for ip confirm
-  read -p "Public IP for this node [$PUBLIC_IP_ADDRESS]" public_ip
+  read -p "Public IP for this computer [$PUBLIC_IP_ADDRESS]" public_ip
   if [ $public_ip ]
   then
     export PUBLIC_IP_ADDRESS=$public_ip
